@@ -125,7 +125,7 @@ export default function StrategicMap({ onBack, strategicMapData }: StrategicMapP
         }
       }
     } else {
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'; ctx.lineWidth = 1 / viewport.zoom;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'; ctx.lineWidth = 1 / viewport.zoom; // 70% прозрачности
       for (let row = startHexRow; row < endHexRow; row++) {
         for (let col = startHexCol; col < endHexCol; col++) {
           const offsetX = (row % 2) * (hexSpacingX / 2);
