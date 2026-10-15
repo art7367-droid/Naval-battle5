@@ -127,7 +127,7 @@ export default function StrategicMap({ onBack, strategicMapData }: StrategicMapP
       }
       ctx.globalAlpha = 1.0; // Восстанавливаем прозрачность
     } else {
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)'; ctx.lineWidth = 1.5 / viewport.zoom; // 65% прозрачности - хорошо видно на фоне земли
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)'; ctx.lineWidth = 1 / viewport.zoom;
       for (let row = startHexRow; row < endHexRow; row++) {
         for (let col = startHexCol; col < endHexCol; col++) {
           const offsetX = (row % 2) * (hexSpacingX / 2);
