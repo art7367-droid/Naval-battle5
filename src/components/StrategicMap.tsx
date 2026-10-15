@@ -117,7 +117,7 @@ export default function StrategicMap({ onBack, strategicMapData }: StrategicMapP
     if (hexSampleImage.current) {
       const sampleImg = hexSampleImage.current;
       const sampleWidth = hexWidth * viewport.zoom; const sampleHeight = hexHeight * viewport.zoom;
-      ctx.globalAlpha = 0.5; // 50% прозрачности для hexSample
+      ctx.globalAlpha = 0.7; // 30% прозрачности для hexSample
       for (let row = startHexRow; row < endHexRow; row++) {
         for (let col = startHexCol; col < endHexCol; col++) {
           const offsetX = (row % 2) * (hexSpacingX / 2);
