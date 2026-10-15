@@ -117,7 +117,6 @@ export default function StrategicMap({ onBack, strategicMapData }: StrategicMapP
     if (hexSampleImage.current) {
       const sampleImg = hexSampleImage.current;
       const sampleWidth = hexWidth * viewport.zoom; const sampleHeight = hexHeight * viewport.zoom;
-      ctx.globalAlpha = 0.2; // 80% прозрачности для образца гекса
       for (let row = startHexRow; row < endHexRow; row++) {
         for (let col = startHexCol; col < endHexCol; col++) {
           const offsetX = (row % 2) * (hexSpacingX / 2);
@@ -125,9 +124,8 @@ export default function StrategicMap({ onBack, strategicMapData }: StrategicMapP
           ctx.drawImage(sampleImg, (centerX - visibleX) * viewport.zoom - sampleWidth / 2, (centerY - visibleY) * viewport.zoom - sampleHeight / 2, sampleWidth, sampleHeight);
         }
       }
-      ctx.globalAlpha = 1.0; // Восстанавливаем прозрачность
     } else {
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'; ctx.lineWidth = 1 / viewport.zoom;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 1.0)'; ctx.lineWidth = 1 / viewport.zoom;
       for (let row = startHexRow; row < endHexRow; row++) {
         for (let col = startHexCol; col < endHexCol; col++) {
           const offsetX = (row % 2) * (hexSpacingX / 2);
