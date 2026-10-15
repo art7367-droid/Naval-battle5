@@ -13,6 +13,7 @@ import StrategicMap from './components/StrategicMap';
 import StrategicMapEditor from './components/StrategicMapEditor';
 import { saveToIndexedDB, loadFromIndexedDB, migrateFromLocalStorage } from './utils/indexedDB';
 import { StrategicMapData } from './types/shipDatabase';
+import { generateAllTiles, MAP_WIDTH as GEN_MAP_WIDTH, MAP_HEIGHT as GEN_MAP_HEIGHT } from './utils/generateMapTiles';
 
 function shipIcon(type: string): string {
   switch (type) { case 'battleship': return '🚢'; case 'cruiser': return '⛴️'; case 'destroyer': return '🚤'; default: return '⚓'; }
@@ -44,9 +45,52 @@ function App() {
   const [showBattleLog, setShowBattleLog] = useState(true);
   const [hitMarkers, setHitMarkers] = useState<Array<{shipId: number; compartmentId: string; turn: number; damage: number}>>([]);
   const [strategicMapData, setStrategicMapData] = useState<StrategicMapData | undefined>(() => {
-    loadFromIndexedDB().then(data => { if (data) setStrategicMapData(data); else migrateFromLocalStorage().then(migrated => { if (migrated) loadFromIndexedDB().then(d => { if (d) setStrategicMapData(d); }); }); });
+    loadFromIndexedDB().then(data => {
+      if (data && data.tiles && data.tiles.length > 0) {
+        setStrategicMapData(data);
+      } else {
+        // Пробуем мигрировать из localStorage
+        migrateFromLocalStorage().then(migrated => {
+          if (migrated) {
+            loadFromIndexedDB().then(d => {
+              if (d && d.tiles && d.tiles.length > 0) {
+                setStrategicMapData(d);
+              } else {
+                // Генерируем дефолтные тайлы карты
+                generateDefaultMap();
+              }
+            });
+          } else {
+            // Генерируем дефолтные тайлы карты
+            generateDefaultMap();
+          }
+        });
+      }
+    });
     return undefined;
   });
+
+  // Генерация дефолтной карты Тихого океана
+  const generateDefaultMap = () => {
+    console.log('🗺️ Генерация дефолтной карты Тихого океана...');
+    setTimeout(() => {
+      const tiles = generateAllTiles();
+      const defaultData: StrategicMapData = {
+        tiles,
+        mapWidth: GEN_MAP_WIDTH,
+        mapHeight: GEN_MAP_HEIGHT,
+        tileWidth: 1500,
+        tileHeight: 1500
+      };
+      setStrategicMapData(defaultData);
+      // Сохраняем в IndexedDB для будущего использования
+      saveToIndexedDB(defaultData).then(() => {
+        console.log('✅ Дефолтная карта сохранена в IndexedDB');
+      }).catch(err => {
+        console.error('❌ Ошибка сохранения дефолтной карты:', err);
+      });
+    }, 100);
+  };
 
   const playerShotTargetsRef = useRef<{ shipId: number; targetShipId: number }[]>([]);
   const setPlayerShotTargetsWithRef = (targets: { shipId: number; targetShipId: number }[]) => { playerShotTargetsRef.current = targets; setPlayerShotTargets(targets); };

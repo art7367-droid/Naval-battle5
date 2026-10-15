@@ -1,21 +1,26 @@
 import { useState, useRef, useEffect } from 'react';
 import { StrategicMapData } from '../types/shipDatabase';
+import { generateAllTiles, MAP_WIDTH as GEN_MAP_WIDTH, MAP_HEIGHT as GEN_MAP_HEIGHT } from '../utils/generateMapTiles';
 
 interface StrategicMapProps { onBack: () => void; strategicMapData?: StrategicMapData; }
 interface Viewport { x: number; y: number; width: number; height: number; zoom: number; }
 interface Region { id: string; name: string; x: number; y: number; width: number; height: number; color: string; }
 
+// Кэш сгенерированных тайлов
+let defaultTilesCache: StrategicMapData | null = null;
+
 export default function StrategicMap({ onBack, strategicMapData }: StrategicMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const MAP_WIDTH = strategicMapData?.mapWidth || 9703;
-  const MAP_HEIGHT = strategicMapData?.mapHeight || 7767;
+  const MAP_WIDTH = strategicMapData?.mapWidth || GEN_MAP_WIDTH;
+  const MAP_HEIGHT = strategicMapData?.mapHeight || GEN_MAP_HEIGHT;
   const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, width: 1200, height: 800, zoom: 0.5 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [selectedRegion, setSelectedRegion] = useState<Region | null>(null);
   const imageCache = useRef<Map<string, HTMLImageElement>>(new Map());
   const hexSampleImage = useRef<HTMLImageElement | null>(null);
+  const [defaultTiles, setDefaultTiles] = useState<StrategicMapData | null>(null);
 
   const regions: Region[] = [
     { id: 'japan', name: 'Япония', x: 7500, y: 1200, width: 800, height: 600, color: '#dc2626' },
@@ -39,14 +44,37 @@ export default function StrategicMap({ onBack, strategicMapData }: StrategicMapP
     return () => window.removeEventListener('resize', updateSize);
   }, []);
 
+  // Генерация дефолтных тайлов если нет загруженных
   useEffect(() => {
-    if (!strategicMapData?.tiles) return;
-    strategicMapData.tiles.forEach(tile => {
+    if (!strategicMapData?.tiles || strategicMapData.tiles.length === 0) {
+      if (defaultTilesCache) {
+        setDefaultTiles(defaultTilesCache);
+      } else {
+        // Генерируем тайлы асинхронно
+        setTimeout(() => {
+          const tiles = generateAllTiles();
+          defaultTilesCache = {
+            tiles,
+            mapWidth: GEN_MAP_WIDTH,
+            mapHeight: GEN_MAP_HEIGHT,
+            tileWidth: 1500,
+            tileHeight: 1500
+          };
+          setDefaultTiles(defaultTilesCache);
+        }, 0);
+      }
+    }
+  }, [strategicMapData]);
+
+  useEffect(() => {
+    const activeData = strategicMapData?.tiles?.length ? strategicMapData : defaultTiles;
+    if (!activeData?.tiles) return;
+    activeData.tiles.forEach(tile => {
       if (!imageCache.current.has(tile.imageData)) {
         const img = new Image(); img.src = tile.imageData; imageCache.current.set(tile.imageData, img);
       }
     });
-  }, [strategicMapData]);
+  }, [strategicMapData, defaultTiles]);
 
   useEffect(() => {
     if (strategicMapData?.hexSample) {
@@ -69,7 +97,9 @@ export default function StrategicMap({ onBack, strategicMapData }: StrategicMapP
     const visibleWidth = viewport.width / viewport.zoom;
     const visibleHeight = viewport.height / viewport.zoom;
 
-    if (strategicMapData?.tiles) {
+    const activeData = strategicMapData?.tiles?.length ? strategicMapData : defaultTiles;
+    
+    if (activeData?.tiles?.length) {
       const cols = 7;
       const standardTileWidth = 1500; const standardTileHeight = 1500;
       const lastColumnWidth = 703; const lastRowHeight = 267;
@@ -83,7 +113,7 @@ export default function StrategicMap({ onBack, strategicMapData }: StrategicMapP
         let y = 0; for (let r = 0; r < row; r++) y += (r === 5 ? lastRowHeight : standardTileHeight);
         return { x, y };
       };
-      strategicMapData.tiles.forEach(tile => {
+      activeData.tiles.forEach(tile => {
         const tileSize = getTileSize(tile.id, tile);
         const tilePos = getTilePosition(tile.id);
         if (tilePos.x + tileSize.width < visibleX || tilePos.x > visibleX + visibleWidth || tilePos.y + tileSize.height < visibleY || tilePos.y > visibleY + visibleHeight) return;
@@ -93,6 +123,7 @@ export default function StrategicMap({ onBack, strategicMapData }: StrategicMapP
         }
       });
     } else {
+      // Fallback: простые прямоугольники регионов
       regions.forEach(region => {
         if (region.x + region.width < visibleX || region.x > visibleX + visibleWidth || region.y + region.height < visibleY || region.y > visibleY + visibleHeight) return;
         const screenX = (region.x - visibleX) * viewport.zoom; const screenY = (region.y - visibleY) * viewport.zoom;
@@ -141,7 +172,7 @@ export default function StrategicMap({ onBack, strategicMapData }: StrategicMapP
         }
       }
     }
-  }, [viewport, regions, strategicMapData]);
+  }, [viewport, regions, strategicMapData, defaultTiles]);
 
   const handleMouseDown = (e: React.MouseEvent) => { setIsDragging(true); setDragStart({ x: e.clientX, y: e.clientY }); };
   const handleMouseMove = (e: React.MouseEvent) => {
