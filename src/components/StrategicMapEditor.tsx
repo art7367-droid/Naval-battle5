@@ -20,6 +20,7 @@ export default function StrategicMapEditor({ strategicMapData, onUpdate }: Strat
   const hexSampleInputRef = useRef<HTMLInputElement>(null);
   const [hexSample, setHexSample] = useState<string | undefined>(strategicMapData?.hexSample);
   const [dragOverTile, setDragOverTile] = useState<number | null>(null);
+  const [showGrid, setShowGrid] = useState<boolean>(true);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files; if (!files) return;
@@ -251,6 +252,17 @@ export default function StrategicMapEditor({ strategicMapData, onUpdate }: Strat
             📥 Импорт
           </button>
           <button onClick={handleClear} className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded text-sm">🗑️ Очистить</button>
+          <button 
+            onClick={() => setShowGrid(!showGrid)} 
+            className={`px-4 py-2 rounded text-sm font-semibold transition-all ${
+              showGrid 
+                ? 'bg-cyan-600 hover:bg-cyan-700 text-white shadow-lg' 
+                : 'bg-slate-600 hover:bg-slate-700 text-slate-300'
+            }`}
+            title={showGrid ? 'Скрыть программную сетку' : 'Показать программную сетку'}
+          >
+            {showGrid ? '🔲 Сетка: ВКЛ' : '🔲 Сетка: ВЫКЛ'}
+          </button>
         </div>
       </div>
       <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFileSelect} className="hidden" />
@@ -278,7 +290,7 @@ export default function StrategicMapEditor({ strategicMapData, onUpdate }: Strat
             const tile = mapTiles.find(t => t.id === idx);
             const tileSize = getTileSize(idx); const tilePos = getTilePosition(idx);
             return (
-              <div key={idx} className={`absolute border-2 transition-all ${dragOverTile === idx ? 'border-cyan-400 bg-cyan-500/20' : tile ? 'border-green-600' : 'border-slate-600 hover:border-slate-500'}`}
+              <div key={idx} className={`absolute transition-all ${dragOverTile === idx ? 'border-2 border-cyan-400 bg-cyan-500/20' : tile ? 'border-2 border-green-600' : showGrid ? 'border-2 border-slate-600 hover:border-slate-500' : 'border-0'}`}
                 style={{ left: `${tilePos.x * displayScale}px`, top: `${tilePos.y * displayScale}px`, width: `${tileSize.width * displayScale}px`, height: `${tileSize.height * displayScale}px` }}
                 onDragOver={(e) => { e.preventDefault(); setDragOverTile(idx); }} onDragLeave={() => setDragOverTile(null)} onDrop={(e) => handleDrop(e, idx)}>
                 {tile ? <img src={tile.imageData} alt={`Tile ${idx}`} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-500 text-xs"><div className="text-center"><div className="text-2xl mb-1">{String(idx).padStart(2, '0')}</div><div className="text-[9px]">{tileSize.width}×{tileSize.height}</div></div></div>}
