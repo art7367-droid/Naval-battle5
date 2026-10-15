@@ -82,23 +82,77 @@ export default function StrategicMapEditor({ strategicMapData, onUpdate }: Strat
   };
 
   const handleExport = () => {
-    const tilesWithSizes = mapTiles.map(tile => ({ ...tile, width: getTileSize(tile.id).width, height: getTileSize(tile.id).height }));
-    const dataToExport: StrategicMapData = { tiles: tilesWithSizes, mapWidth, mapHeight, tileWidth, tileHeight, hexSample };
-    const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'strategic-map-data.json'; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    if (mapTiles.length === 0) {
+      alert('❌ Нет данных для экспорта! Сначала загрузите тайлы карты.');
+      return;
+    }
+
+    try {
+      const tilesWithSizes = mapTiles.map(tile => ({ ...tile, width: getTileSize(tile.id).width, height: getTileSize(tile.id).height }));
+      const dataToExport: StrategicMapData = { tiles: tilesWithSizes, mapWidth, mapHeight, tileWidth, tileHeight, hexSample };
+      
+      const jsonString = JSON.stringify(dataToExport, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'strategic-map-data.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      const fileSizeMB = (jsonString.length / 1024 / 1024).toFixed(2);
+      alert(`✅ Экспорт завершён!\n\nФайл: strategic-map-data.json\nРазмер: ${fileSizeMB} МБ\nТайлов: ${tilesWithSizes.length}`);
+    } catch (error) {
+      console.error('Ошибка экспорта:', error);
+      alert('❌ Ошибка при экспорте данных. Проверьте консоль для деталей.');
+    }
   };
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return;
+    const file = e.target.files?.[0]; 
+    if (!file) return;
+    
+    if (!file.name.endsWith('.json')) {
+      alert('❌ Неверный формат файла! Ожидается .json файл.');
+      return;
+    }
+    
     const reader = new FileReader();
     reader.onload = async (event) => {
       try {
         const data = JSON.parse(event.target?.result as string) as StrategicMapData;
-        if (data.tiles && Array.isArray(data.tiles)) { setMapTiles(data.tiles); if (data.hexSample) setHexSample(data.hexSample); await saveToIndexedDB(data); alert(`✅ Импортировано ${data.tiles.length} тайлов`); }
-        else alert('❌ Неверный формат');
-      } catch { alert('❌ Ошибка чтения'); }
+        
+        if (!data.tiles || !Array.isArray(data.tiles)) {
+          alert('❌ Неверный формат файла! Отсутствует массив tiles.');
+          return;
+        }
+        
+        if (data.tiles.length === 0) {
+          alert('⚠️ Файл не содержит тайлов.');
+          return;
+        }
+        
+        setMapTiles(data.tiles);
+        if (data.hexSample) setHexSample(data.hexSample);
+        
+        try {
+          await saveToIndexedDB(data);
+        } catch (dbError) {
+          console.warn('Не удалось сохранить в IndexedDB:', dbError);
+        }
+        
+        const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
+        alert(`✅ Импорт завершён!\n\nФайл: ${file.name}\nРазмер: ${fileSizeMB} МБ\nТайлов: ${data.tiles.length}`);
+      } catch (error) {
+        console.error('Ошибка импорта:', error);
+        alert('❌ Ошибка при чтении файла. Убедитесь что это корректный JSON файл экспорта карты.');
+      }
     };
-    reader.readAsText(file); e.target.value = '';
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   const handleHexSampleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -132,8 +186,25 @@ export default function StrategicMapEditor({ strategicMapData, onUpdate }: Strat
         <div className="flex gap-2">
           <button onClick={() => fileInputRef.current?.click()} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm">📁 Загрузить</button>
           <button onClick={handleSave} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-sm">💾 Сохранить</button>
-          <button onClick={handleExport} disabled={mapTiles.length === 0} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-600 disabled:cursor-not-allowed rounded text-sm">📤 Экспорт</button>
-          <button onClick={() => importInputRef.current?.click()} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded text-sm">📥 Импорт</button>
+          <button 
+            onClick={handleExport} 
+            disabled={mapTiles.length === 0} 
+            className={`px-4 py-2 rounded text-sm font-semibold transition-all ${
+              mapTiles.length === 0 
+                ? 'bg-slate-600 text-slate-400 cursor-not-allowed opacity-50' 
+                : 'bg-purple-600 hover:bg-purple-700 text-white shadow-lg hover:shadow-xl'
+            }`}
+            title={mapTiles.length === 0 ? 'Сначала загрузите тайлы карты' : `Экспортировать ${mapTiles.length} тайлов в JSON файл`}
+          >
+            📤 Экспорт {mapTiles.length > 0 && `(${mapTiles.length})`}
+          </button>
+          <button 
+            onClick={() => importInputRef.current?.click()} 
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-sm font-semibold shadow-lg hover:shadow-xl transition-all"
+            title="Импортировать карту из ранее сохранённого JSON файла"
+          >
+            📥 Импорт
+          </button>
           <button onClick={handleClear} className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded text-sm">🗑️ Очистить</button>
         </div>
       </div>
