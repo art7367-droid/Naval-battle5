@@ -81,6 +81,10 @@ export default function StrategicMapEditor({ strategicMapData, onUpdate }: Strat
     if (confirm('Очистить все изображения карты?')) { try { await deleteFromIndexedDB(); setMapTiles([]); setHexSample(undefined); } catch { alert('Ошибка очистки'); } }
   };
 
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportData, setExportData] = useState<string>('');
+  const [exportFileName, setExportFileName] = useState('strategic-map-data.json');
+
   const handleExport = () => {
     if (mapTiles.length === 0) {
       alert('❌ Нет данных для экспорта! Сначала загрузите тайлы карты.');
@@ -92,23 +96,64 @@ export default function StrategicMapEditor({ strategicMapData, onUpdate }: Strat
       const dataToExport: StrategicMapData = { tiles: tilesWithSizes, mapWidth, mapHeight, tileWidth, tileHeight, hexSample };
       
       const jsonString = JSON.stringify(dataToExport, null, 2);
-      const blob = new Blob([jsonString], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'strategic-map-data.json';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      
       const fileSizeMB = (jsonString.length / 1024 / 1024).toFixed(2);
-      alert(`✅ Экспорт завершён!\n\nФайл: strategic-map-data.json\nРазмер: ${fileSizeMB} МБ\nТайлов: ${tilesWithSizes.length}`);
+      
+      // Способ 1: Попытка скачивания через Blob
+      try {
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'strategic-map-data.json';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        
+        // Удаляем элемент с задержкой, чтобы браузер успел начать загрузку
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 100);
+        
+        console.log(`✅ Экспорт: Файл ${fileSizeMB} МБ, ${tilesWithSizes.length} тайлов`);
+      } catch (downloadError) {
+        console.warn('Автоматическое скачивание заблокировано, показываем альтернативный способ');
+      }
+      
+      // Способ 2: Показываем модальное окно с данными для ручного копирования
+      setExportData(jsonString);
+      setExportFileName('strategic-map-data.json');
+      setShowExportModal(true);
+      
     } catch (error) {
       console.error('Ошибка экспорта:', error);
       alert('❌ Ошибка при экспорте данных. Проверьте консоль для деталей.');
     }
+  };
+
+  const handleCopyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(exportData);
+      alert('✅ Данные скопированы в буфер обмена!\n\nТеперь вы можете:\n1. Открыть текстовый редактор (Блокнот, VS Code)\n2. Вставить данные (Ctrl+V)\n3. Сохранить файл как strategic-map-data.json');
+    } catch (error) {
+      console.error('Ошибка копирования:', error);
+      alert('❌ Не удалось скопировать. Выделите текст вручную и скопируйте (Ctrl+C).');
+    }
+  };
+
+  const handleDownloadFromModal = () => {
+    const blob = new Blob([exportData], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = exportFileName;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 100);
   };
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -242,6 +287,73 @@ export default function StrategicMapEditor({ strategicMapData, onUpdate }: Strat
           })}
         </div>
       </div>
+
+      {/* Модальное окно экспорта */}
+      {showExportModal && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-800 rounded-lg max-w-4xl w-full max-h-[90vh] flex flex-col border border-slate-600">
+            <div className="p-4 border-b border-slate-700 flex justify-between items-center">
+              <h3 className="text-xl font-bold text-cyan-300">📤 Экспорт карты</h3>
+              <button 
+                onClick={() => setShowExportModal(false)}
+                className="text-slate-400 hover:text-white text-2xl"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="p-4 flex-1 overflow-auto">
+              <div className="mb-4 p-3 bg-blue-900/30 border border-blue-700 rounded">
+                <p className="text-sm text-blue-200">
+                  💡 <strong>Инструкция:</strong> Если автоматическое скачивание не сработало, 
+                  вы можете скопировать данные вручную:
+                </p>
+                <ol className="text-sm text-blue-200 mt-2 list-decimal list-inside space-y-1">
+                  <li>Нажмите кнопку "📋 Копировать всё"</li>
+                  <li>Откройте текстовый редактор (Блокнот, VS Code, etc.)</li>
+                  <li>Вставьте данные (Ctrl+V)</li>
+                  <li>Сохраните файл как <code className="bg-slate-900 px-2 py-0.5 rounded">strategic-map-data.json</code></li>
+                </ol>
+              </div>
+
+              <div className="mb-4 flex gap-2">
+                <button
+                  onClick={handleCopyToClipboard}
+                  className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 rounded text-sm font-semibold"
+                >
+                  📋 Копировать всё
+                </button>
+                <button
+                  onClick={handleDownloadFromModal}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-sm font-semibold"
+                >
+                  💾 Скачать файл
+                </button>
+              </div>
+
+              <div className="text-xs text-slate-400 mb-2">
+                Размер данных: {(exportData.length / 1024 / 1024).toFixed(2)} МБ | Тайлов: {mapTiles.length}
+              </div>
+
+              <textarea
+                value={exportData}
+                readOnly
+                className="w-full h-96 bg-slate-900 border border-slate-700 rounded p-2 text-xs font-mono text-slate-300 resize-none"
+                onClick={(e) => (e.target as HTMLTextAreaElement).select()}
+              />
+            </div>
+
+            <div className="p-4 border-t border-slate-700 flex justify-end">
+              <button
+                onClick={() => setShowExportModal(false)}
+                className="px-6 py-2 bg-slate-600 hover:bg-slate-700 rounded font-semibold"
+              >
+                Закрыть
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
