@@ -1,36 +1,13 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { StrategicMapData } from '../types/shipDatabase';
 import { saveToIndexedDB, deleteFromIndexedDB } from '../utils/indexedDB';
-import { generateAllTiles, MAP_WIDTH as GEN_MAP_WIDTH, MAP_HEIGHT as GEN_MAP_HEIGHT } from '../utils/generateMapTiles';
 
 interface StrategicMapEditorProps { strategicMapData?: StrategicMapData; onUpdate: (data: StrategicMapData) => void; }
 
 export default function StrategicMapEditor({ strategicMapData, onUpdate }: StrategicMapEditorProps) {
   const [mapTiles, setMapTiles] = useState<Array<{ id: number; imageData: string; row: number; col: number }>>(strategicMapData?.tiles || []);
-  const [isGenerating, setIsGenerating] = useState(false);
-
-  // Если нет тайлов, предлагаем сгенерировать дефолтные
-  useEffect(() => {
-    if ((!strategicMapData?.tiles || strategicMapData.tiles.length === 0) && mapTiles.length === 0) {
-      // Автоматически генерируем дефолтные тайлы
-      setIsGenerating(true);
-      setTimeout(() => {
-        const tiles = generateAllTiles();
-        setMapTiles(tiles);
-        setIsGenerating(false);
-        const data: StrategicMapData = {
-          tiles,
-          mapWidth: GEN_MAP_WIDTH,
-          mapHeight: GEN_MAP_HEIGHT,
-          tileWidth: 1500,
-          tileHeight: 1500
-        };
-        saveToIndexedDB(data).then(() => onUpdate(data));
-      }, 100);
-    }
-  }, []);
-  const mapWidth = strategicMapData?.mapWidth || GEN_MAP_WIDTH;
-  const mapHeight = strategicMapData?.mapHeight || GEN_MAP_HEIGHT;
+  const mapWidth = strategicMapData?.mapWidth || 9703;
+  const mapHeight = strategicMapData?.mapHeight || 7767;
   const cols = 7; const rows = 6;
   const standardTileWidth = 1500; const standardTileHeight = 1500;
   const lastColumnWidth = 703; const lastRowHeight = 267;
@@ -154,18 +131,6 @@ export default function StrategicMapEditor({ strategicMapData, onUpdate }: Strat
         <h3 className="text-lg font-bold text-cyan-300">🗺️ Редактор стратегической карты</h3>
         <div className="flex gap-2">
           <button onClick={() => fileInputRef.current?.click()} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm">📁 Загрузить</button>
-          <button onClick={() => {
-            setIsGenerating(true);
-            setTimeout(() => {
-              const tiles = generateAllTiles();
-              setMapTiles(tiles);
-              setIsGenerating(false);
-              const data: StrategicMapData = { tiles, mapWidth: GEN_MAP_WIDTH, mapHeight: GEN_MAP_HEIGHT, tileWidth: 1500, tileHeight: 1500 };
-              saveToIndexedDB(data).then(() => onUpdate(data));
-            }, 100);
-          }} disabled={isGenerating} className="px-4 py-2 bg-teal-600 hover:bg-teal-700 disabled:bg-slate-600 rounded text-sm">
-            {isGenerating ? '⏳ Генерация...' : '🗺️ Сгенерировать карту'}
-          </button>
           <button onClick={handleSave} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-sm">💾 Сохранить</button>
           <button onClick={handleExport} disabled={mapTiles.length === 0} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-600 disabled:cursor-not-allowed rounded text-sm">📤 Экспорт</button>
           <button onClick={() => importInputRef.current?.click()} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded text-sm">📥 Импорт</button>
